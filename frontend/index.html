@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Image to SMILES Prediction</title>
+
+  <!-- 3Dmol -->
+  <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>Image to SMILES Prediction</h1>
+      <p class="subtitle">
+        Upload a molecular image to automatically predict its SMILES representation
+        and visualize the compound in interactive 2D and 3D formats.
+      </p>
+    </div>
+
+    <!-- Upload -->
+    <div class="upload-card">
+      <input type="file" id="fileInput" accept="image/*">
+      <button id="uploadBtn">Upload & Predict</button>
+
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <span>Predicting molecular structure...</span>
+      </div>
+    </div>
+
+    <!-- Prediction -->
+    <div class="prediction">
+      <span>Predicted SMILES</span>
+      <code id="smilesText">—</code>
+    </div>
+
+    <!-- Visualization -->
+    <div class="visual-grid">
+
+      <!-- 2D -->
+      <div class="card">
+        <h2>2D Structure</h2>
+        <div id="svgContainer" class="viewer"></div>
+        <button id="download2D">⬇ Download 2D Image</button>
+      </div>
+
+      <!-- 3D -->
+      <div class="card">
+        <h2>3D Structure</h2>
+        <div id="viewer3D" class="viewer"></div>
+
+        <div class="controls">
+          <button id="zoomIn">＋</button>
+          <button id="zoomOut">－</button>
+          <button id="resetView">⟳ Reset</button>
+          <button id="download3D">⬇ MOL</button>
+        </div>
+      </div>
+
+    </div>
+
+    <footer>
+      Built by <b>Stuti Shukla</b> · AI-Driven Molecular Informatics
+    </footer>
+  </div>
+
+<script>
+  const fileInput = document.getElementById("fileInput");
+  const uploadBtn = document.getElementById("uploadBtn");
+  const smilesText = document.getElementById("smilesText");
+  const svgContainer = document.getElementById("svgContainer");
+  const viewerDiv = document.getElementById("viewer3D");
+  const loading = document.getElementById("loading");
+
+  let viewer = null;
+  let currentMolData = "";
+
+  uploadBtn.addEventListener("click", async () => {
+    if (!fileInput.files.length) {
+      alert("Please select an image!");
+      return;
+    }
+
+    loading.classList.remove("hidden");
+    uploadBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/predict", {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await response.json();
+
+      smilesText.textContent = data.smiles || "—";
+      svgContainer.innerHTML = data.structure_2d_svg || "";
+
+      // 🔥 HARD RESET VIEWER CONTAINER
+      viewerDiv.innerHTML = "";
+      viewerDiv.style.position = "relative";
+      viewerDiv.style.width = "100%";
+      viewerDiv.style.height = "350px";
+
+      // 🔥 WAIT FOR DOM + GRID TO SETTLE
+      requestAnimationFrame(() => {
+        viewer = $3Dmol.createViewer(viewerDiv, {
+          backgroundColor: "#fafafa"
+        });
+
+        currentMolData = data.structure_3d;
+        viewer.addModel(currentMolData, "mol");
+
+        viewer.setStyle({}, {
+          stick: { radius: 0.2 },
+          sphere: { scale: 0.3 }
+        });
+
+        viewer.zoomTo();
+        viewer.render();
+        viewer.resize();     // ✅ CRITICAL
+        viewer.spin(true);   // auto-rotate
+      });
+
+    } catch (err) {
+      console.error(err);
+      alert("Prediction failed.");
+    } finally {
+      loading.classList.add("hidden");
+      uploadBtn.disabled = false;
+    }
+  });
+
+  // 3D Controls
+  document.getElementById("zoomIn").onclick = () => viewer && viewer.zoom(1.2);
+  document.getElementById("zoomOut").onclick = () => viewer && viewer.zoom(0.8);
+  document.getElementById("resetView").onclick = () => viewer && viewer.zoomTo();
+
+  // Download 3D MOL
+  document.getElementById("download3D").onclick = () => {
+    if (!currentMolData) return;
+    const blob = new Blob([currentMolData], { type: "chemical/x-mdl-molfile" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "structure.mol";
+    a.click();
+  };
+
+  // Download 2D SVG
+  document.getElementById("download2D").onclick = () => {
+    const svg = svgContainer.innerHTML;
+    if (!svg) return;
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "structure.svg";
+    a.click();
+  };
+</script>
+</body>
+</html>
