@@ -4,31 +4,23 @@ import io
 import tempfile
 import threading
 
-# Ensure model loads only once
+# Thread lock to avoid race conditions
 _model_lock = threading.Lock()
-_model_loaded = False
 
-def _load_model_once():
-    global _model_loaded
-    if not _model_loaded:
-        # Dummy call to trigger model download/load
-        predict_SMILES("dummy")
-        _model_loaded = True
+def image_to_smiles(image_bytes: bytes) -> str:
+    """
+    Converts image bytes to SMILES using DECIMER.
+    Model is loaded lazily on first real inference.
+    """
 
-def image_to_smiles(image_bytes: bytes):
-    global _model_loaded
+    # Open image safely
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-    # Lazy model loading (does NOT block server startup)
-    if not _model_loaded:
-        with _model_lock:
-            if not _model_loaded:
-                _load_model_once()
-
-    image = Image.open(io.BytesIO(image_bytes))
-
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmp:
-        image.save(tmp.name)
-        smiles = predict_SMILES(tmp.name)
+    # Use a thread-safe temporary file
+    with _model_lock:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmp:
+            image.save(tmp.name)
+            smiles = predict_SMILES(tmp.name)
 
     return smiles
 
