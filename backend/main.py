@@ -15,6 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Health check (REQUIRED for Render)
 @app.get("/")
 def read_root():
     return {"message": "Image to SMILES backend running"}
@@ -32,4 +33,5 @@ async def predict(file: UploadFile = File(...)):
         "structure_2d_svg": smiles_to_2d_svg(smiles),
         "structure_3d": smiles_to_3d_block(smiles),
     }
+
 
