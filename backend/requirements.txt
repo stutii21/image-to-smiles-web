@@ -2,8 +2,6 @@ fastapi
 uvicorn
 python-multipart
 pillow
-DECIMER
-py3Dmol
 rdkit
-numpy
-torch
+decimer
+
