@@ -1,9 +1,12 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+import os
+import uvicorn
 
 from decimer_model import image_to_smiles
 from rdkit_utils import smiles_to_2d_svg, smiles_to_3d_block
 
+# Create FastAPI app
 app = FastAPI(title="Image to SMILES API")
 
 # Enable CORS
@@ -20,6 +23,7 @@ app.add_middleware(
 def read_root():
     return {"message": "Image to SMILES backend running"}
 
+# Prediction endpoint
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     image_bytes = await file.read()
@@ -34,4 +38,7 @@ async def predict(file: UploadFile = File(...)):
         "structure_3d": smiles_to_3d_block(smiles),
     }
 
-
+# Local run support (optional, safe)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
